@@ -129,6 +129,8 @@ body{
 img{ max-width:100%; display:block; }
 a{ color:inherit; text-decoration:none; }
 button{ font-family:inherit; cursor:pointer; }
+/* dark placeholder for any image that fails to load (applied by JS on error) */
+img.img-broken{ background:radial-gradient(circle at 50% 40%, #15151b, #0b0b0f 78%); object-fit:cover; }
 .wrap{ max-width:var(--maxw); margin:0 auto; padding-inline:var(--gutter); }
 
 /* ==========================================================
@@ -216,7 +218,57 @@ button{ font-family:inherit; cursor:pointer; }
   min-width:18px; height:18px; border-radius:50%;
   display:grid; place-items:center;
 }
-@media (max-width:860px){ .nav-links{ display:none; } }
+/* ---- mobile hamburger + slide-in menu ---- */
+.nav-toggle{
+  display:none; position:relative; z-index:130;
+  width:44px; height:44px; border-radius:50%;
+  align-items:center; justify-content:center;
+  background:rgba(244,243,240,.05); border:1px solid var(--line);
+  color:var(--bone);
+  transition:border-color .25s, background .25s;
+}
+.nav-toggle:hover{ border-color:var(--line-2); background:rgba(244,243,240,.1); }
+.nav-toggle svg{ width:20px; height:20px; }
+.nav-toggle .ico-close{ display:none; }
+.nav-toggle.open .ico-open{ display:none; }
+.nav-toggle.open .ico-close{ display:block; }
+
+.mobile-menu{
+  position:fixed; top:0; right:0; z-index:120;
+  width:min(320px, 86vw); height:100%;
+  display:flex; flex-direction:column; gap:4px;
+  padding:92px 20px 28px;
+  background:var(--ink-2); border-left:1px solid var(--line-2);
+  box-shadow:-30px 0 80px rgba(0,0,0,.5);
+  transform:translateX(100%); visibility:hidden;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1), visibility .35s;
+}
+.mobile-menu.open{ transform:none; visibility:visible; }
+.mobile-menu a{
+  display:flex; align-items:center; min-height:48px;
+  padding:12px 16px; border-radius:var(--r-md);
+  font-size:16px; font-weight:500; color:var(--bone);
+  transition:background .2s;
+}
+.mobile-menu a:hover{ background:rgba(244,243,240,.07); }
+.mobile-menu-backdrop{
+  position:fixed; inset:0; z-index:110;
+  background:rgba(3,3,6,.6);
+  -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+  opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s;
+}
+.mobile-menu-backdrop.open{ opacity:1; visibility:visible; }
+
+@media (max-width:860px){
+  .nav-links{ display:none; }
+  .nav-toggle{ display:inline-flex; }
+  /* tap targets: minimum 44px on touch screens */
+  .icon-btn{ width:44px; height:44px; }
+  .cart-btn{ padding:11px 18px; min-height:44px; }
+}
+@media (min-width:861px){
+  .mobile-menu, .mobile-menu-backdrop{ display:none; }
+}
 
 /* ==========================================================
    HERO — animated ocean, modern CTAs
@@ -698,6 +750,14 @@ button.cat{
 .co-summary-row.co-grand{ font-size:18px; font-weight:700; border-top:1px solid var(--line-2); margin-top:4px; padding-top:12px; }
 @media (max-width:760px){ .checkout-grid{ grid-template-columns:1fr; } .checkout-summary{ border-left:none; border-top:1px solid var(--line); } .co-options{ grid-template-columns:1fr; } }
 
+/* ---- mobile: full-width cart drawer + 44px tap targets ---- */
+@media (max-width:560px){
+  .cart-panel{ width:100%; }
+  .cart-close, .checkout-close, .pdp-close, .fav{ width:44px; height:44px; }
+  .cart-qty button, .pdp-qty button{ width:44px; height:44px; }
+  .co-place, .cart-checkout, .pdp-add, .co-option{ min-height:44px; }
+}
+
 /* ---- success ---- */
 .order-success{ position:fixed; inset:0; z-index:240; display:flex; align-items:center; justify-content:center; padding:24px; text-align:center; background:rgba(7,7,10,.92); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); visibility:hidden; opacity:0; transition:opacity .4s ease, visibility .4s; }
 .order-success.open{ visibility:visible; opacity:1; }
@@ -910,6 +970,31 @@ footer{ border-top:1px solid var(--line); padding:70px 0 36px; }
 </head>
 <body>
 
+<!-- Global image fallback: any <img> that fails to load (static or JS-injected)
+     is swapped for a dark placeholder instead of a broken-image icon. Registered
+     first, in capture phase, so it catches errors on every image below. -->
+<script>
+(function(){
+  var DARK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%230b0b0f'/%3E%3C/svg%3E";
+  function fallback(img){
+    if(!img || img.dataset.imgFallback) return;
+    img.dataset.imgFallback = '1';
+    img.classList.add('img-broken');
+    img.src = DARK;
+  }
+  document.addEventListener('error', function(e){
+    var t = e.target;
+    if(t && t.tagName === 'IMG' && t.src.indexOf('data:image/svg+xml') === -1) fallback(t);
+  }, true);
+  /* catch images that already failed (e.g. from cache) before this ran */
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('img').forEach(function(img){
+      if(img.complete && img.naturalWidth === 0) fallback(img);
+    });
+  });
+})();
+</script>
+
 <!-- Hidden form so Netlify Forms detects "order-submission" at build time.
      The checkout JS populates these fields and submits via fetch. -->
 <form name="order-submission" data-netlify="true" id="orderForm" hidden>
@@ -958,8 +1043,21 @@ footer{ border-top:1px solid var(--line); padding:70px 0 36px; }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       </button>
       <button class="cart-btn">Cart <span class="dot">0</span></button>
+      <button class="nav-toggle" id="navToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobileMenu">
+        <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
   </div>
+</nav>
+
+<!-- Mobile navigation (revealed by the hamburger below 860px) -->
+<div class="mobile-menu-backdrop" id="mobileMenuBackdrop"></div>
+<nav class="mobile-menu" id="mobileMenu" aria-hidden="true" aria-label="Mobile">
+  <a href="#shop">Shop</a>
+  <a href="#categories">Tops</a>
+  <a href="#about">About</a>
+  <a href="https://mail.google.com/mail/?view=cm&to=limitless.apparel246@gmail.com" target="_blank" rel="noopener noreferrer">Contact</a>
 </nav>
 
 <!-- ============================ HERO ============================ -->
@@ -2345,6 +2443,35 @@ document.querySelectorAll('.reveal').forEach(el => io.observe(el));
   /* close when clicking outside, or pressing Escape */
   document.addEventListener('click', e => { if(!dropdown.contains(e.target)) closeMenu(); });
   document.addEventListener('keydown', e => { if(e.key === 'Escape') closeMenu(); });
+})();
+
+/* ============ mobile hamburger menu ============ */
+(function(){
+  const toggle   = document.getElementById('navToggle');
+  const menu     = document.getElementById('mobileMenu');
+  const backdrop = document.getElementById('mobileMenuBackdrop');
+  if(!toggle || !menu || !backdrop) return;
+
+  function openMenu(){
+    menu.classList.add('open'); backdrop.classList.add('open'); toggle.classList.add('open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', 'Close menu');
+    menu.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMenu(){
+    menu.classList.remove('open'); backdrop.classList.remove('open'); toggle.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Open menu');
+    menu.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  toggle.addEventListener('click', () => menu.classList.contains('open') ? closeMenu() : openMenu());
+  backdrop.addEventListener('click', closeMenu);
+  /* close after tapping any link (links keep their own navigation/reveal behavior) */
+  menu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && menu.classList.contains('open')) closeMenu(); });
 })();
 
 /* ============ See The Full Drop — toggle (hidden by default, never persisted) ============ */
