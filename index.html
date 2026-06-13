@@ -906,6 +906,9 @@ footer{ border-top:1px solid var(--line); padding:70px 0 36px; }
   .reveal{ opacity:1; transform:none; }
 }
 </style>
+
+<!-- ============ EMAILJS ============ -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -2151,6 +2154,12 @@ footer{ border-top:1px solid var(--line); padding:70px 0 36px; }
 
 <script>
 /* ==========================================================
+   EMAILJS — initialize with your public key
+   Replace the placeholders below with your real EmailJS IDs.
+   ========================================================== */
+if (window.emailjs) { emailjs.init("YOUR_PUBLIC_KEY"); }
+
+/* ==========================================================
    OCEAN — moonlit black water on <canvas>
    Tweak CONFIG to taste.
    ========================================================== */
@@ -2976,13 +2985,16 @@ document.querySelectorAll('.fav').forEach(btn => {
 
       placeBtn.disabled = true;
       const finish = () => { placeBtn.disabled = false; closeCheckout(); showSuccess(); clearCart(); resetCheckout(); };
-      fetch('/.netlify/functions/send-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      })
-        .then(res => {
-          if(!res.ok) return res.text().then(t => { throw new Error(t || ('HTTP ' + res.status)); });
+
+      if(!window.emailjs){
+        console.error('EmailJS library failed to load.');
+        placeBtn.disabled = false;
+        coError.textContent = 'Sorry, we could not place your order. Please try again, or contact us directly.';
+        return;
+      }
+
+      emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', orderData)
+        .then(() => {
           finish();
         })
         .catch(err => {
