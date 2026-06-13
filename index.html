@@ -907,10 +907,24 @@ footer{ border-top:1px solid var(--line); padding:70px 0 36px; }
 }
 </style>
 
-<!-- ============ EMAILJS ============ -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
 <body>
+
+<!-- Hidden form so Netlify Forms detects "order-submission" at build time.
+     The checkout JS populates these fields and submits via fetch. -->
+<form name="order-submission" data-netlify="true" id="orderForm" hidden>
+  <input type="hidden" name="form-name" value="order-submission">
+  <input type="hidden" name="customer_name">
+  <input type="hidden" name="customer_email">
+  <input type="hidden" name="customer_phone">
+  <input type="hidden" name="fulfillment_method">
+  <input type="hidden" name="parish">
+  <input type="hidden" name="delivery_address">
+  <input type="hidden" name="payment_method">
+  <input type="hidden" name="order_items">
+  <input type="hidden" name="delivery_fee">
+  <input type="hidden" name="grand_total">
+</form>
 
 <!-- ============================ NAV ============================ -->
 <nav class="nav">
@@ -2154,12 +2168,6 @@ footer{ border-top:1px solid var(--line); padding:70px 0 36px; }
 
 <script>
 /* ==========================================================
-   EMAILJS — initialize with your public key
-   Replace the placeholders below with your real EmailJS IDs.
-   ========================================================== */
-if (window.emailjs) { emailjs.init("YOUR_PUBLIC_KEY"); }
-
-/* ==========================================================
    OCEAN — moonlit black water on <canvas>
    Tweak CONFIG to taste.
    ========================================================== */
@@ -2986,15 +2994,25 @@ document.querySelectorAll('.fav').forEach(btn => {
       placeBtn.disabled = true;
       const finish = () => { placeBtn.disabled = false; closeCheckout(); showSuccess(); clearCart(); resetCheckout(); };
 
-      if(!window.emailjs){
-        console.error('EmailJS library failed to load.');
-        placeBtn.disabled = false;
-        coError.textContent = 'Sorry, we could not place your order. Please try again, or contact us directly.';
-        return;
-      }
+      // Populate the hidden Netlify form and submit it via fetch.
+      const orderForm = document.getElementById('orderForm');
+      const fields = [
+        'customer_name', 'customer_email', 'customer_phone',
+        'fulfillment_method', 'parish', 'delivery_address',
+        'payment_method', 'order_items', 'delivery_fee', 'grand_total'
+      ];
+      fields.forEach(f => {
+        if(orderForm.elements[f]) orderForm.elements[f].value = orderData[f];
+      });
 
-      emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', orderData)
-        .then(() => {
+      const body = new URLSearchParams(new FormData(orderForm)).toString();
+      fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      })
+        .then(res => {
+          if(!res.ok) throw new Error('HTTP ' + res.status);
           finish();
         })
         .catch(err => {
