@@ -3103,6 +3103,16 @@ document.querySelectorAll('.fav').forEach(btn => {
 
       const sub = subtotal(), grand = sub + fee;
 
+      // Plain, readable item list for the order email (no image paths — they
+      // can't render in Netlify form notifications). One item per line.
+      const itemsText = cart.map(c =>
+        '- ' + c.name +
+        ' | Size: ' + c.size +
+        (c.color ? ' | Color: ' + c.color : '') +
+        ' | Qty: ' + c.qty +
+        ' | Price: ' + fmt(c.unit)
+      ).join('\n');
+
       const orderData = {
         customer_name: name,
         customer_email: email,
@@ -3111,7 +3121,7 @@ document.querySelectorAll('.fav').forEach(btn => {
         parish: fulfillment === DELIVERY ? parish : 'N/A',
         delivery_address: fulfillment === DELIVERY ? address : 'N/A (pickup)',
         payment_method: payment === 'venue' ? 'Pay at Venue' : 'Bank Transfer',
-        order_items: JSON.stringify(cart),
+        order_items: itemsText,
         subtotal: fmt(sub),
         delivery_fee: fulfillment === DELIVERY ? (fmt(fee) + ' BBD') : 'N/A',
         grand_total: fmt(grand),
