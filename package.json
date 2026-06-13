@@ -1,0 +1,9 @@
+{
+  "name": "limitless-apparel",
+  "version": "1.0.0",
+  "description": "Limitless Apparel storefront with Netlify order-email function.",
+  "private": true,
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  }
+}
