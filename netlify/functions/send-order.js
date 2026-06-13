@@ -1,11 +1,12 @@
 // Netlify Function: send-order
 // Receives an order (POST JSON) from the checkout and emails it to the store
-// inbox via SendGrid (no personal email/password needed).
+// inbox via Gmail SMTP using nodemailer (no external packages to install).
 //
 // Required environment variables (set in Netlify → Site settings → Environment):
-//   SENDGRID_API_KEY  -> SendGrid API key (get free account at sendgrid.com)
+//   EMAIL_USER -> the Gmail address used to send (e.g. you@gmail.com)
+//   EMAIL_PASS -> a Gmail App Password for that account (not the login password)
 
-const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
 
 const ORDER_INBOX = 'limitless.apparel246@gmail.com';
 
@@ -42,12 +43,10 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Missing required order fields' };
   }
 
-  if (!process.env.SENDGRID_API_KEY) {
-    console.error('SENDGRID_API_KEY environment variable is not set.');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('EMAIL_USER and/or EMAIL_PASS environment variables are not set.');
     return { statusCode: 500, body: 'Email service is not configured' };
   }
-
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
   const isDelivery = String(fulfillment_method || '').toLowerCase() === 'delivery';
 
@@ -131,7 +130,7 @@ exports.handler = async (event) => {
   );
 
   const text = lines.join('\n');
-  
+
   // Build HTML items section with images and details
   let itemsHtml = '';
   if (Array.isArray(itemsArray) && itemsArray.length > 0) {
@@ -158,7 +157,7 @@ exports.handler = async (event) => {
   } else {
     itemsHtml = `<pre style="margin:0;font-family:inherit;white-space:pre-wrap">${escapeHtml(String(order_items))}</pre>`;
   }
-  
+
   const html =
     '<div style="font-family:Arial,Helvetica,sans-serif;color:#111;line-height:1.5">' +
     '<h2 style="margin:0 0 8px">New Order — Limitless Apparel</h2>' +
@@ -182,10 +181,19 @@ exports.handler = async (event) => {
     `<p style="margin:12px 0 0;color:#666;font-size:12px">Placed: ${escapeHtml(order_date || new Date().toLocaleString())}</p>` +
     '</div>';
 
-  // Configure and send the email via SendGrid
-  const msg = {
+  // Configure the Gmail SMTP transport via nodemailer
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
+  });
+
+  // Build and send the email
+  const mailOptions = {
+    from: `"Limitless Apparel Orders" <${process.env.EMAIL_USER}>`,
     to: ORDER_INBOX,
-    from: 'orders@limitlessapparel.com',
     replyTo: customer_email,
     subject: `New Order — ${customer_name} (${grand_total || ''})`.trim(),
     text,
@@ -193,7 +201,7 @@ exports.handler = async (event) => {
   };
 
   try {
-    await sgMail.send(msg);
+    await transporter.sendMail(mailOptions);
 
     return {
       statusCode: 200,
